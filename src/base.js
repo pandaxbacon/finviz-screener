@@ -1,9 +1,10 @@
+@@ -0,0 +1,85 @@
 'use strict'
 
 const axios = require('axios').default
 const rateLimit = require('axios-rate-limit')
 const cheerio = require('cheerio')
-const selector = '#screener-content > table:nth-child(1) > tbody:nth-child(1) > tr:nth-child(5) > td:nth-child(1) > table:nth-child(1) > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(1) > span'
+const selector = '#screener-table > td > table > tbody > tr > td > table > tbody > tr:not(:first-child) > td:nth-child(2)';
 
 /**
  * @typedef {object} Options
@@ -39,9 +40,11 @@ class FinVizScreener {
         this.options = Object.assign({}, defaults, options)
         /** @private */
         this._axios = rateLimit(
-            axios.create({ baseURL: 'https://finviz.com/screener.ashx?v=411' }),
+            axios.create({ baseURL: 'https://finviz.com/screener.ashx?v=111' }),
             { maxRequests: 1, perMilliseconds: this.options.requestTimeout }
         )
+        // console.log(axios.baseURL)
+        // console.log(this._axios.defaults.baseURL); 
         /** @private */
         this._signal = ''
         /** @private */
@@ -56,24 +59,24 @@ class FinVizScreener {
     async scan() {
         const params = { f: this._filters.join(','), s: this._signal }
 
+        // console.log(params)
+
         let tickers = []
         let nextPage = ''
         let cancel = false
         let counter = 0
+        // console.log(this._axios.defaults.baseURL); 
+        
 
         do {
             cancel = this.options.pageLimit !== 0 && ++counter >= this.options.pageLimit
-
             // fetch tickers
             const res = await this._axios.get(nextPage, { params })
             const $ = cheerio.load(res.data)
             tickers = tickers.concat($(selector).map((i, el) => $(el).text().trim()).get())
-
             // find next page
-            const $nextPage = $('.screener_pagination').children().last()
-            nextPage = $nextPage.children().first().text().includes('next')
-                ? $nextPage.prop('href')
-                : ''
+            const $nextPageLink = $('.screener_pagination a.tab-link.is-next');
+            nextPage = $nextPageLink.length > 0 ? $nextPageLink.prop('href') : '';
         } while(nextPage && ! cancel)
 
         return tickers
